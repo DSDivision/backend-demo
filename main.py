@@ -1,19 +1,19 @@
-from telnetlib import STATUS
 from fastapi import FastAPI, Path, Query, HTTPException, status
 import pandas as pd
+from typing import Optional
 
 app = FastAPI()
 
 data = pd.read_csv("data/netflix_titles.csv",index_col=0).fillna("null")
 
 @app.get("/recommendation")
-async def recommendation(limit: int | None = Query(10, description="Max nr of movies to list."),
-                         title: str | None = Query("", description="Search by title"),
-                         genre: str | None = Query("", description="Search by genre"),
-                         director: str | None = Query("", description="Search by director"),
-                         actor: str | None = Query("", description="Search by actor"),
-                         keyword: str | None = Query("", description="Search by a keyword from description"),
-                         release_year: int | None = Query(None, description="Search by release year")):
+async def recommendation(limit: Optional[int] = Query(10, description="Max nr of movies to list."),
+                         title: Optional[str] = Query("", description="Search by title"),
+                         genre: Optional[str] = Query("", description="Search by genre"),
+                         director: Optional[str] = Query("", description="Search by director"),
+                         actor: Optional[str] = Query("", description="Search by actor"),
+                         keyword: Optional[str] = Query("", description="Search by a keyword from description"),
+                         release_year: Optional[int] = Query(None, description="Search by release year")):
 
     
     sample = data.loc[data['title'].str.contains(title) &
@@ -25,6 +25,7 @@ async def recommendation(limit: int | None = Query(10, description="Max nr of mo
         sample = sample.loc[sample['release_year']==release_year]
     if(len(sample)==0):
         raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail="No media found")
+        
     return sample.head(limit).to_dict(orient="index")
 
 @app.get("/recommendation/{show_id}")
