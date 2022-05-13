@@ -1,35 +1,41 @@
 from fastapi import FastAPI, Path, Query, HTTPException, status
 import pandas as pd
 from typing import Optional
+import requests
 
 app = FastAPI()
 
-data = pd.read_csv("data/netflix_titles.csv",index_col=0).fillna("null")
+api_key = '15d2ea6d0dc1d476efbca3eba2b9bbfb'
+recommendation_payload = {'api_key' : api_key,'language' : 'en-US'}
 
-@app.get("/recommendation")
-async def recommendation(limit: Optional[int] = Query(10, description="Max nr of movies to list."),
-                         title: Optional[str] = Query("", description="Search by title"),
-                         genre: Optional[str] = Query("", description="Search by genre"),
-                         director: Optional[str] = Query("", description="Search by director"),
-                         actor: Optional[str] = Query("", description="Search by actor"),
-                         keyword: Optional[str] = Query("", description="Search by a keyword from description"),
-                         release_year: Optional[int] = Query(None, description="Search by release year")):
+@app.get("/recommendation/{title}")
+async def recommendation(title: str = Path(None, description="Title of the basis movie (mandatory)"),
+                         #limit: Optional[int] = Query(None, description="Max nr of movies to list."),
+                         #genre: Optional[str] = Query(None, description="Search by genre"),
+                         #director: Optional[str] = Query(None, description="Search by director"),
+                         #actor: Optional[str] = Query(None, description="Search by actor"),
+                         #keyword: Optional[str] = Query(None, description="Search by a keyword from description"),
+                         #release_year: Optional[int] = Query(None, description="Search by release year")
+                         ):
 
-    
-    sample = data.loc[data['title'].str.contains(title) &
-                      data['listed_in'].str.contains(genre) &
-                      data['director'].str.contains(director) &
-                      data['cast'].str.contains(actor) &
-                      data['description'].str.contains(keyword)]
-    if release_year!=None:
-        sample = sample.loc[sample['release_year']==release_year]
-    if(len(sample)==0):
-        raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail="No media found")
+    movie_payload = {
         
-    return sample.head(limit).to_dict(orient="index")
+    'api_key' : api_key,
+    'language' : 'en-US',
+    'include_adult' : 'false',
+    'query' : title
 
-@app.get("/recommendation/{show_id}")
-async def getMovie(show_id: str = Path(None, description="An id of the show")):
-    if(show_id not in data.index):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie with that id does not exist")
-    return data.loc[show_id].to_dict()
+    }
+    r = requests.get('https://api.themoviedb.org/3/search/movie', params=movie_payload, timeout=10)
+    
+    if(not r.ok):
+        raise HTTPException(status_code = r.status_code, detail="Some error")
+    movie_id = r.json()['results'][0]['id']
+
+    r = requests.get(f'https://api.themoviedb.org/3/movie/{movie_id}/recommendations', params=recommendation_payload, timeout=10)
+
+    if(not r.ok):
+        raise HTTPException(status_code = r.status_code, detail="Some error")
+
+    return r.json()['results']
+
