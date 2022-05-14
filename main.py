@@ -30,12 +30,29 @@ async def recommendation(title: str = Path(None, description="Title of the basis
     
     if(not r.ok):
         raise HTTPException(status_code = r.status_code, detail="Some error")
+
+    if(r.json()['total_results']==0):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No movie found")
+
     movie_id = r.json()['results'][0]['id']
 
     r = requests.get(f'https://api.themoviedb.org/3/movie/{movie_id}/recommendations', params=recommendation_payload, timeout=10)
 
     if(not r.ok):
         raise HTTPException(status_code = r.status_code, detail="Some error")
-
-    return r.json()['results']
+    
+    results = r.json()['results']
+    for movie in results:
+        new_poster_path = 'https://image.tmdb.org/t/p/original'+movie['poster_path']
+        movie['poster_path']=new_poster_path
+        r = requests.get(f'https://api.themoviedb.org/3/movie/{movie_id}', params=recommendation_payload, timeout=10)
+        imdb_id = r.json()['imdb_id']
+        movie['imdb_path']='https://www.imdb.com/title/'+imdb_id
+        r = requests.get(f'https://api.themoviedb.org/3/movie/{movie_id}/watch/providers?api_key={api_key}', timeout=10)
+        providers = r.json()['results']['FI']['flatrate']
+        movie['providers']=providers
+        for provider in providers:
+            new_logo_path = 'https://image.tmdb.org/t/p/original'+provider['logo_path']
+            provider['logo_path'] = new_logo_path
+    return results
 
