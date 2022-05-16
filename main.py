@@ -7,8 +7,11 @@ app = FastAPI()
 
 api_key = '15d2ea6d0dc1d476efbca3eba2b9bbfb'
 recommendation_payload = {'api_key': api_key, 'language': 'en-US'}
-
-
+r = requests.get('https://api.themoviedb.org/3/genre/movie/list',
+                            params=recommendation_payload, timeout=10).json()['genres']
+movie_genres=dict()
+for genre in r:
+    movie_genres[str(genre['id'])]=genre['name']
 @app.get("/recommendation/{title}")
 async def recommendation(title: str = Path(None, description="Title of the basis movie (mandatory)"),
                          #limit: Optional[int] = Query(None, description="Max nr of movies to list."),
@@ -42,7 +45,7 @@ async def recommendation(title: str = Path(None, description="Title of the basis
 
     if(not r.ok):
         raise HTTPException(status_code=r.status_code, detail="Some error")
-
+    
     results = r.json()['results']
     for movie in results:
         movie['poster_path'] = 'https://image.tmdb.org/t/p/original' + movie['poster_path']
@@ -65,4 +68,8 @@ async def recommendation(title: str = Path(None, description="Title of the basis
         for provider in movie['providers']:
             provider['logo_path'] = 'https://image.tmdb.org/t/p/original' + provider['logo_path']
 
+        genres=[]
+        for genre in movie['genre_ids']:
+           genres.append(movie_genres[str(genre)])
+        movie['genre_ids']=genres
     return results
