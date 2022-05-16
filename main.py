@@ -72,4 +72,5 @@ async def recommendation(title: str = Path(None, description="Title of the basis
         for genre in movie['genre_ids']:
            genres.append(movie_genres[str(genre)])
         movie['genre_ids']=genres
+        movie['release_date']=movie['release_date'][0:4]
     return results
